@@ -1,0 +1,55 @@
+[package]
+name = "cochlea-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Blackfall Labs <magnus@blackfall.dev>"]
+description = "Phoneme-level speech transcription via formant estimation and lexicon pronunciation matching"
+keywords = ["speech", "transcription", "phoneme", "neuromorphic"]
+categories = ["multimedia::audio", "science"]
+
+[dependencies]
+# Phoneme table + IPA tokenizer (data only, no synthesis)
+signal-oscillator = { path = "../ternsig-oscillator" }
+
+# Lexicon access (134K IPA pronunciations)
+blackfall-lexicon = { path = "../blackfall-lexicon" }
+
+# Pattern memory for phoneme recognition
+databank-rs = { path = "../databank-rs" }
+
+# Ternary signal types
+ternary-signal = { path = "../ternary-signal" }
+
+# ANT mastery learning classifier
+atomic-neural-transistors = { path = "../atomic-neural-transistors" }
+
+# Temporal accumulation for phoneme context
+temporal-field = { path = "../temporal-field-rs" }
+
+# FFT for formant estimation
+rustfft = "6.2"
+
+# Audio I/O
+hound = "3.5"
+symphonia = { version = "0.5", features = ["mp3", "wav", "flac"] }
+
+# Error handling
+thiserror = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+[patch.crates-io]
+ternary-signal = { path = "../ternary-signal" }
+temporal-field = { path = "../temporal-field-rs" }
+
+[[bin]]
+name = "cochlea-transcribe"
+path = "src/bin/transcribe.rs"
+
+[profile.release]
+opt-level = 3
