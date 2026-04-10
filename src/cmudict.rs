@@ -2,6 +2,7 @@
 //! the pronunciation trie with 135K English word pronunciations.
 
 use crate::pronunciation::PronunciationTrie;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Load a CMUdict file and populate a PronunciationTrie.
@@ -54,6 +55,55 @@ pub fn load_cmudict(path: &Path) -> Result<PronunciationTrie, String> {
 
     log::info!("Loaded {} pronunciations from CMUdict", loaded);
     Ok(trie)
+}
+
+/// Load a CMUdict file into a word → IPA phoneme sequence map.
+///
+/// Returns a HashMap where keys are lowercase words and values are
+/// vectors of IPA phoneme strings (e.g., "hello" → ["h", "ə", "l", "oʊ"]).
+///
+/// Only the first pronunciation variant is kept for each word.
+pub fn load_word_to_ipa_map(path: &Path) -> Result<HashMap<String, Vec<&'static str>>, String> {
+    let content =
+        std::fs::read_to_string(path).map_err(|e| format!("failed to read cmudict: {}", e))?;
+
+    let mut map = HashMap::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with(";;;") {
+            continue;
+        }
+
+        let (word_raw, phonemes_str) = match line.find(|c: char| c.is_ascii_whitespace()) {
+            Some(idx) => (&line[..idx], line[idx..].trim()),
+            None => continue,
+        };
+
+        // Strip variant markers like "(2)", "(3)".
+        let word = word_raw
+            .split('(')
+            .next()
+            .unwrap_or(word_raw)
+            .to_lowercase();
+
+        if word.starts_with('\'') {
+            continue;
+        }
+
+        // Only keep first pronunciation variant.
+        if map.contains_key(&word) {
+            continue;
+        }
+
+        let ipa = arpabet_to_ipa(phonemes_str);
+        if !ipa.is_empty() {
+            map.insert(word, ipa);
+        }
+    }
+
+    log::info!("Loaded {} word→IPA mappings from CMUdict", map.len());
+    Ok(map)
 }
 
 /// Convert an ARPABET phoneme string to a sequence of IPA symbols.

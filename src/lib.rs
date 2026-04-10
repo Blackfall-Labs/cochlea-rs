@@ -26,6 +26,8 @@ pub mod config;
 pub mod disambiguator;
 pub mod error;
 pub mod formant;
+pub mod librispeech;
+pub mod mastery_cache;
 pub mod mfcc;
 pub mod mfcc_templates;
 pub mod phoneme_bank;
@@ -35,6 +37,7 @@ pub mod preprocess;
 pub mod pronunciation;
 pub mod sequencer;
 pub mod temporal_context;
+pub mod training;
 pub mod transcript;
 
 use crate::config::TranscriptionConfig;
@@ -120,6 +123,64 @@ impl Transcriber {
         };
 
         self.transcribe_samples(&samples)
+    }
+
+    /// Transcribe pre-extracted MFCC frames directly (e.g., from a spool file).
+    ///
+    /// Skips audio loading, pre-emphasis, and MFCC extraction — starts from
+    /// noise estimation onward.
+    pub fn transcribe_mfcc_frames(&self, mfcc_frames: &[Vec<f32>]) -> Result<TranscriptionResult> {
+        if mfcc_frames.is_empty() {
+            return Err(CochleaError::EmptyAudio);
+        }
+
+        let mut frames = mfcc_frames.to_vec();
+
+        // Noise estimation and spectral subtraction.
+        if self.config.noise_estimation_frames > 0 {
+            let noise = estimate_noise_profile(&frames, self.config.noise_estimation_frames);
+            spectral_subtraction(&mut frames, &noise);
+        }
+
+        // CMN.
+        if self.config.cmn_enabled {
+            cepstral_mean_normalization(&mut frames);
+        }
+
+        // VAD.
+        let vad = adaptive_vad(&frames, self.config.vad_threshold);
+        let speech_frames = vad.iter().filter(|&&v| v).count();
+
+        // Temporal classification.
+        let mut accumulator = TemporalAccumulator::new();
+        let top_k = self.config.phoneme_top_k;
+        let frame_candidates: Vec<_> = frames
+            .iter()
+            .map(|frame| {
+                accumulator.write_frame(frame);
+                let temporal_features = accumulator.extract_features();
+                self.phoneme_classifier.classify_temporal(&temporal_features, top_k)
+            })
+            .collect();
+
+        let vad = &vad[..frame_candidates.len().min(vad.len())];
+
+        // Sequence phonemes.
+        let phoneme_events = self.sequencer.sequence(&frame_candidates, vad);
+
+        // Word matching.
+        let transcript = if let Some(ref trie) = self.pronunciation_trie {
+            self.match_words(&phoneme_events, trie)
+        } else {
+            self.phoneme_transcript(&phoneme_events)
+        };
+
+        Ok(TranscriptionResult {
+            transcript,
+            phoneme_events,
+            total_frames: frames.len(),
+            speech_frames,
+        })
     }
 
     /// Transcribe raw audio samples (must match the configured sample rate).

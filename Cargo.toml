@@ -17,6 +17,9 @@ blackfall-lexicon = { path = "../blackfall-lexicon" }
 # Pattern memory for phoneme recognition
 databank-rs = { path = "../databank-rs" }
 
+# Spool reader for pre-extracted LibriSpeech MFCCs
+dataspool-rs = { path = "../dataspool-rs" }
+
 # Ternary signal types
 ternary-signal = { path = "../ternary-signal" }
 
@@ -50,6 +53,14 @@ temporal-field = { path = "../temporal-field-rs" }
 [[bin]]
 name = "cochlea-transcribe"
 path = "src/bin/transcribe.rs"
+
+[[bin]]
+name = "eval-librispeech"
+path = "src/bin/eval_librispeech.rs"
+
+[[bin]]
+name = "train-phonemes"
+path = "src/bin/train_phonemes.rs"
 
 [profile.release]
 opt-level = 3
