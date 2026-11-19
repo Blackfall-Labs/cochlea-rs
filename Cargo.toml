@@ -2,6 +2,7 @@
 name = "cochlea-rs"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 authors = ["Blackfall Labs <magnus@blackfall.dev>"]
 description = "Phoneme-level speech transcription via formant estimation and lexicon pronunciation matching"
 keywords = ["speech", "transcription", "phoneme", "neuromorphic"]
